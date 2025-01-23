@@ -8,6 +8,8 @@
 
 #include <stdio.h>
 
+#include "console_hardware_inc.h"
+
 #include "gamedb/game_detection.h"
 
 //The following buffer1 to buffer4 are just place holders and their meanings change as the pointers frontBuffer, readyBuffer, backBuffer and lastBuffer point to them.
@@ -102,7 +104,7 @@ void ppuInit() {
 
 void renderBGTiles() {
     const uint8_t bgX = scx + x;
-    const uint8_t bgY = memory[0xff42] + y;
+    const uint8_t bgY = memory[rSCY] + y;
     const uint8_t tileIndex = memory[(bgTileMap9C00 ? 0x9c00 : 0x9800) | (((uint16_t)bgY & 0x00f8) << 2) | (bgX >> 3)];
     const uint16_t tileAddress = (0x8000 | (tileIndex << 4) | (tileData8000 || tileIndex > 0x7f ? 0x0000 : 0x1000)) + ((bgY << 1) & 0x0f);
     const uint16_t lowerTileData = memory[tileAddress];
@@ -120,8 +122,8 @@ void renderBGTiles() {
 }
 
 void renderWindowTiles() {
-    const uint8_t windowX = x + 7 - memory[0xff4B];
-    const uint8_t windowY = wy - memory[0xff4A];
+    const uint8_t windowX = x + 7 - memory[rWX];
+    const uint8_t windowY = wy - memory[rWY];
     const uint8_t tileIndex = memory[(windowTileMap9C00 ? 0x9c00 : 0x9800) | (((uint16_t)windowY & 0x00f8) << 2) | (windowX >> 3)];
     const uint16_t tileAddress = (0x8000 | (tileIndex << 4) | (tileData8000 || tileIndex > 0x7f ? 0x0000 : 0x1000)) + ((windowY << 1) & 0x0f);
     const uint16_t lowerTileData = memory[tileAddress];
@@ -195,16 +197,16 @@ void renderSprites() {
 
 void renderStep() { //Renders eight pixels at once
     if (x == 0) { //We want to align our step to the grid of the background tiles within the current viewport
-        scx = memory[0xff43];
+        scx = memory[rSCX];
         x -= (scx & 0x07);
     }
 
     if (bgAndWindowDisplay) {
         if (!inWindowRange)
             renderBGTiles();
-        if (!inWindowRange && windowEnable && y >= memory[0xff4a] && x + 15 > memory[0xff4b]) {
+        if (!inWindowRange && windowEnable && y >= memory[rWY] && x + 15 > memory[rWX]) {
             inWindowRange = true;
-            x = memory[0xff4b] - 7;
+            x = memory[rWX] - 7;
         }
         if (inWindowRange)
             renderWindowTiles();

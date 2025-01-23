@@ -5,6 +5,8 @@
 #include "debug.h"
 #include "gamedb/game_detection.h"
 
+#include "console_hardware_inc.h"
+
 bool syncArmed = false;
 uint statSyncStage = 0; //0 = false, 1 = register read to A, 2 = masked to 0x03, 3 = cp to 0x01
 uint lySyncStage = 0; //0 = false, 1 = register read, 2 = cp
@@ -65,24 +67,24 @@ void toMemory(uint16_t address, uint8_t data) {
         VRAM_HASH(address, data); //Calculate hash for game detection if we are writing to VRAM
     } else if (address >= 0xff00) { //Handle some IO registers
         switch (address) {
-            case 0xff04: //Reset DIV register
+            case rDIV: //Reset DIV register
                 div = cycleIndex;
                 break;
-            case 0xff40: //LCDC
-                bgAndWindowDisplay = (data & 0x01) != 0;
-                objEnable = (data & 0x02) != 0;
-                objSize = ((data & 0x04) != 0 ? 16 : 8);
-                bgTileMap9C00 = (data & 0x08) != 0;
-                tileData8000 = (data & 0x10) != 0;
-                windowEnable = (data & 0x20) != 0;
-                windowTileMap9C00 = (data & 0x40) != 0;
-                lcdAndPpuEnable = (data & 0x80) != 0;
+            case rLCDC: //LCDC
+                bgAndWindowDisplay = (data & LCDCF_BGON) != 0;
+                objEnable          = (data & LCDCF_OBJON) != 0;
+                objSize            = ((data & LCDCF_OBJ16) != 0 ? 16 : 8);
+                bgTileMap9C00      = (data & LCDCF_BG9C00) != 0;
+                tileData8000       = (data & LCDCF_BG8000) != 0;
+                windowEnable       = (data & LCDCF_WINON) != 0;
+                windowTileMap9C00  = (data & LCDCF_WIN9C00) != 0;
+                lcdAndPpuEnable    = (data & LCDCF_ON) != 0;
                 break;
-            case 0xff41: //STAT
+            case rSTAT: //STAT
                 //Due to the STAT interrupt bug on DMG and GBP, we disable interrupt sycnhronization for a few cycles after any write to the STAT register
                 interruptsEnableCycle = cycleIndex;
                 break;
-            case 0xff46: //OAM DMA transfer
+            case rDMA: //OAM DMA transfer
                 if ((data & 0x80) != 0 && ((data & 0xe0) != 0xa0)) {
                     //OAM from our RAM copy
                     dmaToOAM((uint16_t)(data) << 8);
@@ -94,25 +96,25 @@ void toMemory(uint16_t address, uint8_t data) {
                 }
                 ignoreCycles = 161;
                 break;
-            case 0xff47: //BG Palette
+            case rBGP: //BG Palette
                 paletteBG[0] = (~data & 0x03);
                 paletteBG[1] = ((~data >> 2) & 0x03);
                 paletteBG[2] = ((~data >> 4) & 0x03);
                 paletteBG[3] = ((~data >> 6) & 0x03);
                 break;
-            case 0xff48: //OBP0 Palette
+            case rOBP0: //OBP0 Palette
                 //Lowest bit is transparent and therefore ignored
                 paletteOBP0[1] = ((~data >> 2) & 0x03);
                 paletteOBP0[2] = ((~data >> 4) & 0x03);
                 paletteOBP0[3] = ((~data >> 6) & 0x03);
                 break;
-            case 0xff49: //OBP1 Palette
+            case rOBP1: //OBP1 Palette
                 //Lowest bit is transparent and therefore ignored
                 paletteOBP1[1] = ((~data >> 2) & 0x03);
                 paletteOBP1[2] = ((~data >> 4) & 0x03);
                 paletteOBP1[3] = ((~data >> 6) & 0x03);
                 break;
-            case 0xff4d: //KEY1, GBC double speed mode switch
+            case rKEY1: //KEY1, GBC double speed mode switch
                 if (data & 0x01)
                     stop("Game Boy Color\ngames are not\nsupported.");
                 break; 
@@ -127,8 +129,8 @@ void toMemory(uint16_t address, uint8_t data) {
 uint8_t static inline fromMemory(uint16_t addr) {
     DEBUG_TRIGGER_BREAKPOINT_AT_READ_FROM_ADDRESS
     switch (addr) {
-        case 0xff04: return (uint8_t)((uint)(cycleIndex - div) >> 8); //DIV register
-        case 0xff41:
+        case rDIV: return (uint8_t)((uint)(cycleIndex - div) >> 8); //DIV register
+        case rSTAT:
                     //STAT register. Since this is usually only used for conditional jumps done in the real Game Boy, emulating the correct value is not ciritcally here.
                     //Instead we use it to synchronize our PPU to the real one:
                     //We need to understand if the game reads STAT in a tight loop to enter some critical code with extremely precise timing and we need to synchronize our PPU to it.
@@ -145,7 +147,7 @@ uint8_t static inline fromMemory(uint16_t addr) {
                         return 1;
                     else
                         return 0; //The PPU sync is usually not precise enough to emulate mode 2 and mode 3. This just gives weird results if a game really uses this value and it even throws off game detection in such cases.
-        case 0xff44:
+        case rLY:
                     //LY register. The exact value usually is not critical as the Game Boy will usually only use this for conditional jumps, but we can return our PPU y position here anyway.
                     //We can assume that the game reads LY in a tight loop to enter some critical code with extremely precise timing and we need to synchronize our PPU to it.
                     //This is a very naive approach with DOnkey Kong Land in mind:

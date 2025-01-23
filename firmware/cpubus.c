@@ -16,6 +16,8 @@
 #include "hardware/clocks.h"
 #include "hardware/structs/systick.h"
 
+#include "console_hardware_inc.h"
+
 uint32_t cycleRatio; //Ratio of rp2040 cycles to Game Boy cycles.
 #define CYCLE_RATIO_STATISTIC_SKIP 250 //How many cycles to skip before building the statistic
 #define CYCLE_RATIO_STATISTIC_SIZE 1000 //How many cycles to capture as a statistic for cycleRatio
@@ -126,6 +128,7 @@ void reset() {
     error = NULL;
     errorOpcode = -1;
 
+    // TODO: MegaDuck: init reg values -> to all zeros? Entry point?
     *a = 0x01;
     *b = 0x00;
     *c = 0x13;
@@ -143,38 +146,45 @@ void reset() {
 
     memset((void*)memory, 0, sizeof(memory));
 
-    toMemory(0xff04, 0xab); // DIV
-    toMemory(0xff05, 0x00); // TIMA
-    toMemory(0xff06, 0x00); // TMA
-    toMemory(0xff07, 0x00); // TAC
-    toMemory(0xff10, 0x80); // NR10
-    toMemory(0xff11, 0xbf); // NR11
-    toMemory(0xff12, 0xf3); // NR12
-    toMemory(0xff14, 0xbf); // NR14
-    toMemory(0xff16, 0x3f); // NR21
-    toMemory(0xff17, 0x00); // NR22
-    toMemory(0xff19, 0xbf); // NR24
-    toMemory(0xff1a, 0x7f); // NR30
-    toMemory(0xff1b, 0xff); // NR31
-    toMemory(0xff1c, 0x9f); // NR32
-    toMemory(0xff1e, 0xbf); // NR34
-    toMemory(0xff20, 0xff); // NR41
-    toMemory(0xff21, 0x00); // NR42
-    toMemory(0xff22, 0x00); // NR43
-    toMemory(0xff23, 0xbf); // NR44
-    toMemory(0xff24, 0x77); // NR50
-    toMemory(0xff25, 0xf3); // NR51
-    toMemory(0xff26, 0xf1); // NR52
-    toMemory(0xff40, 0x91); // LCDC
-    toMemory(0xff42, 0x00); // SCY
-    toMemory(0xff43, 0x00); // SCX
-    toMemory(0xff45, 0x00); // LYC
-    toMemory(0xff47, 0xfc); // BGP
-    toMemory(0xff48, 0xff); // OBP0
-    toMemory(0xff49, 0xff); // OBP1
-    toMemory(0xff4a, 0x00); // WY
-    toMemory(0xff4b, 0x00); // WX
-    toMemory(0xffff, 0x00); // IE
+    toMemory(rDIV,  0xab); // DIV
+    toMemory(rTIMA, 0x00); // TIMA
+    toMemory(rTMA,  0x00); // TMA
+    toMemory(rTAC,  0x00); // TAC
+    toMemory(rNR10, 0x80); // NR10
+    toMemory(rNR11, 0xbf); // NR11
+    #ifdef BUILD_MEGADUCK
+        toMemory(rNR12, 0x3f); // NR12  // Duck: Nybble Swap
+    #else
+        toMemory(rNR12, 0xf3); // NR12
+    #endif
+    toMemory(rNR14, 0xbf); // NR14
+    toMemory(rNR21, 0x3f); // NR21
+    toMemory(rNR22, 0x00); // NR22  // Duck: Nybble swap: none needed for value 0x00
+    toMemory(rNR24, 0xbf); // NR24
+    toMemory(rNR30, 0x7f); // NR30
+    toMemory(rNR31, 0xff); // NR31
+                                    // NR32
+                                    // Game Boy: Bits:6..5 : 00 = mute, 01 = 100%, 10 = 50%, 11 = 25%
+                                    // Mega Duck: Bits:6..5 : 00 = mute, 01 = 25%, 10 = 50%, 11 = 100%
+    toMemory(rNR32, 0x9f); // NR32  // Duck: Volume bit swizzle: none needed for value 0x00
+    toMemory(rNR34, 0xbf); // NR34
+    toMemory(rNR41, 0xff); // NR41
+    toMemory(rNR42, 0x00); // NR42  // Duck: Nybble swap: none needed for value 0x00
+    toMemory(rNR43, 0x00); // NR43  // Duck: Nybble swap: none needed for value 0x00
+    toMemory(rNR44, 0xbf); // NR44
+    toMemory(rNR50, 0x77); // NR50
+    toMemory(rNR51, 0xf3); // NR51
+    toMemory(rNR52, 0xf1); // NR52
+    toMemory(rLCDC, LCDCF_ON | LCDCF_BGON); // LCDC default:0x91
+    toMemory(rSCY,  0x00); // SCY
+    toMemory(rSCX,  0x00); // SCX
+    toMemory(rLYC,  0x00); // LYC
+    toMemory(rBGP,  0xfc); // BGP
+    toMemory(rOBP0, 0xff); // OBP0
+    toMemory(rOBP1, 0xff); // OBP1
+    toMemory(rWY,   0x00); // WY
+    toMemory(rWX,   0x00); // WX
+    toMemory(rIE,   0x00); // IE
 
     resetHashes();
 }
@@ -234,6 +244,8 @@ void handleMemoryBus() { //To be executed on second core
     while (1) {
         reset();
 
+        // TODO: MegaDuck: Maybe this whole thing can be skipped?
+
         //Wait for game to actually start and use this to determine the cycleRatio
         uint leadIn = CYCLE_RATIO_STATISTIC_SKIP; //Skip first cycles in case something funny triggered a few extras while turning on.
         uint count = CYCLE_RATIO_STATISTIC_SIZE;
@@ -253,7 +265,13 @@ void handleMemoryBus() { //To be executed on second core
                     systick_hw->rvr = cycleRatio-1;
                 }
             }
-        } while (*address != 0x0100);
+        }
+        #ifdef BUILD_MEGADUCK
+        while (*address != 0x0000); // MegaDuck has no boot ROM, user program starts up at 0x0000
+        #else
+        while (*address != 0x0100);
+        #endif
+
 
         running = true;
 
@@ -337,8 +355,8 @@ void handleMemoryBus() { //To be executed on second core
                         vblankOffset = (144 - y) * CYCLES_PER_LINE - lineCycle - 6;
                         if (vblankOffset > CYCLES_PER_FRAME/2)
                             vblankOffset -= CYCLES_PER_FRAME;
-                    } else if (*address == 0x0048 && ((memory[0xff41] & 0b01111000) == 0b01000000)) { //STAT interrupt for LY = LYC. That's helpful.
-                        vblankOffset = (memory[0xff45] - y) * CYCLES_PER_LINE - lineCycle - 6;
+                    } else if (*address == 0x0048 && ((memory[rSTAT] & 0b01111000) == 0b01000000)) { //STAT interrupt for LY = LYC. That's helpful.
+                        vblankOffset = (memory[rLYC] - y) * CYCLES_PER_LINE - lineCycle - 6;
                         if (vblankOffset > CYCLES_PER_FRAME/2)
                             vblankOffset -= CYCLES_PER_FRAME;
                         else if (vblankOffset < -CYCLES_PER_FRAME/2)
