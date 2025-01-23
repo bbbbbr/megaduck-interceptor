@@ -180,7 +180,7 @@ int main(void) {
             } else {
                 if (fallbackScreenType == FST_NONE || fallbackScreenType == FST_DEFAULT || fallbackScreenType == FST_ERROR) {
                     loadFallbackScreen(off_raw, FST_OFF);
-                    renderText("The Game Boy\nis turned off", 0x03, 0x00, (uint8_t *)backBuffer, 40, 79);
+                    renderText("The Mega Duck\nis turned off", 0x03, 0x00, (uint8_t *)backBuffer, 40, 79);
                     if (!includeChroma)
                         renderText("   60 fps mode.\nSwitch to 30fps if\nthere are problems.", 0x03, 0x00, (uint8_t *)backBuffer, 5, 100);
                     readyBufferIsNew = false;

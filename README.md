@@ -1,3 +1,15 @@
+# MegaDuck Interceptor
+A modified version of the "GB Interceptor" firmware so that it can be run on a Mega Duck clone console (requires a cartridge slot adapter).
+
+
+## Download
+Pre-built binaries can be downloaded from the [Releases section](https://github.com/bbbbbr/megaduck-interceptor/releases)
+
+
+**Original Repo Readme Below**
+
+------------------
+
 # GB Interceptor
 Capture or stream Game Boy gameplay footage via USB without modifying the Game Boy.
 
