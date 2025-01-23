@@ -1,7 +1,7 @@
 // hardware_inc.h
 
 // Control which console to build for
-// #define BUILD_MEGADUCK
+#define BUILD_MEGADUCK
 
 
 #ifdef BUILD_MEGADUCK

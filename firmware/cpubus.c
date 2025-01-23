@@ -128,7 +128,7 @@ void reset() {
     error = NULL;
     errorOpcode = -1;
 
-    // TODO: MegaDuck: init reg values -> to all zeros? Entry point?
+    // TODO: MegaDuck: init reg values -> to all zeros? Random values? Testing indicated it wasn't consistent due to lack of boot ROM
     *a = 0x01;
     *b = 0x00;
     *c = 0x13;
